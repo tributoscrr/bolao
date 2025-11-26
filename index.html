@@ -11,8 +11,8 @@
     <!-- Firebase SDK versão compatível -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-    
-    <style>
+   
+         <style>
         :root {
             --primary: #6366f1;
             --primary-dark: #4f46e5;
@@ -403,9 +403,35 @@
             color: white;
         }
 
-        /* Modal de senha com z-index mais alto */
-        #modal-password {
-            z-index: 2000;
+        /* --- EFEITOS DE VITÓRIA --- */
+        .confetti {
+            position: fixed;
+            width: 10px;
+            height: 10px;
+            background-color: #f00;
+            opacity: 0.7;
+            z-index: 9999;
+            pointer-events: none;
+        }
+
+        .winner-celebration {
+            animation: celebration 1.5s ease-out;
+        }
+
+        @keyframes celebration {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+
+        .firework {
+            position: fixed;
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            box-shadow: 0 0 10px 2px;
+            z-index: 9998;
+            pointer-events: none;
         }
     </style>
 </head>
@@ -416,7 +442,7 @@
     <header>
         <h1>Bolão Mensal</h1>
         <div class="header-actions">
-            <button onclick="openSettings()"><i class="fas fa-ellipsis-v"></i></button>
+            <!-- Botão de configurações removido -->
         </div>
     </header>
 
@@ -425,12 +451,7 @@
             <div class="stats-card">
                 <h3>Prêmio Total Acumulado</h3>
                 <div class="pot-value" id="total-pot">R$ 0,00</div>
-                <p id="participation-stats" style="color: var(--text-light); font-size: 0.9rem;">0 Pagos / 0 Total</p>
-            </div>
-
-            <div class="stats-card">
-                <h3>Referência</h3>
-                <p id="current-reference" style="font-size: 1.2rem; font-weight: 600; margin-top: 0.5rem;">...</p>
+                <p id="participation-stats" style="color: var(--text-light); font-size: 0.9rem;">0 Ativos / 0 Total</p>
             </div>
 
             <button class="btn-draw" id="btn-sortear" onclick="startDraw()">
@@ -476,35 +497,7 @@
         </button>
     </nav>
 
-    <!-- Modal de Senha Genérico - DEVE VIR PRIMEIRO para ter maior z-index -->
-    <div id="modal-password" class="modal-overlay">
-        <div class="modal-content">
-            <h3 id="password-modal-title">Acesso Restrito</h3>
-            <p id="password-modal-message" style="margin-bottom: 1rem; font-size: 0.9rem;">Digite a senha de administrador para continuar.</p>
-            <input type="password" id="admin-pass" class="form-control" placeholder="Senha" inputmode="numeric">
-            <button class="btn-primary" onclick="executeActionAfterPassword()">Confirmar</button>
-            <button class="btn-secondary" onclick="closeModal('modal-password')">Cancelar</button>
-        </div>
-    </div>
-
-    <!-- Outros modais vêm DEPOIS do modal de senha -->
-    <div id="modal-settings" class="modal-overlay">
-        <div class="modal-content">
-            <h3>Configurações</h3>
-            <div class="form-group">
-                <label>Valor Padrão (R$)</label>
-                <input type="number" id="setting-default-value" class="form-control">
-            </div>
-            <div class="form-group">
-                <label>Mês de Referência</label>
-                <input type="month" id="setting-ref-date" class="form-control">
-            </div>
-            <button class="btn-primary" onclick="saveSettingsWithPassword()">Salvar Configurações</button>
-            <button class="btn-secondary" style="background: #fee2e2; color: #ef4444;" onclick="resetDataWithPassword()">Limpar Tudo (Reset)</button>
-            <button class="btn-secondary" onclick="closeModal('modal-settings')">Fechar</button>
-        </div>
-    </div>
-
+    <!-- Modal para adicionar participantes -->
     <div id="modal-add" class="modal-overlay">
         <div class="modal-content">
             <h3>Novo Participante</h3>
@@ -514,10 +507,22 @@
             </div>
             <div class="form-group">
                 <label>Contribuição (R$)</label>
-                <input type="number" id="new-value" class="form-control">
+                <input type="number" id="new-value" class="form-control" value="100" readonly>
             </div>
-            <button class="btn-primary" onclick="addParticipantWithPassword()">Adicionar</button>
+            <button class="btn-primary" onclick="addParticipant()">Adicionar</button>
             <button class="btn-secondary" onclick="closeModal('modal-add')">Cancelar</button>
+        </div>
+    </div>
+
+    <!-- Modal para selecionar mês de referência -->
+    <div id="modal-month" class="modal-overlay">
+        <div class="modal-content">
+            <h3>Selecionar Mês de Referência</h3>
+            <div class="form-group">
+                <label>Mês de Referência para o Sorteio</label>
+                <input type="month" id="month-ref" class="form-control" value="">
+            </div>
+            <button class="btn-primary" onclick="confirmMonth()">Confirmar</button>
         </div>
     </div>
 
@@ -530,6 +535,7 @@
                 <p style="color: #ccc; margin-bottom: 0.5rem;">O vencedor é:</p>
                 <h2 id="final-winner" style="color: var(--success); font-size: 2.2rem; margin-bottom: 1rem;">Nome</h2>
                 <div style="font-size: 1.5rem; font-weight: bold; color: gold; margin-bottom: 1rem;" id="final-prize">R$ 0,00</div>
+                <p id="month-info" style="color: #ccc; font-size: 0.9rem; margin-bottom: 1rem;"></p>
                 <button class="btn-primary" onclick="closeModal('draw-animation-modal'); location.reload();">Parabéns!</button>
             </div>
         </div>
@@ -551,20 +557,17 @@
         const db = firebase.firestore();
 
         // --- ESTADO DO APLICATIVO ---
-        const DEFAULT_PASS = "142536";
         let appData = {
             settings: {
-                defaultValue: 20,
-                currentRef: new Date().toISOString().slice(0, 7) // YYYY-MM format
+                defaultValue: 100, // Valor fixo de R$ 100
+                lastMonth: null // Último mês usado no sorteio
             },
             participants: [],
             history: []
         };
 
-        // Variáveis para controle de ações pendentes
-        let pendingAction = null;
-        let pendingActionData = null;
-        let currentModalToClose = null;
+        // Variável para armazenar o próximo mês a ser usado
+        let nextMonthToUse = null;
 
         // --- INICIALIZAÇÃO ---
         document.addEventListener('DOMContentLoaded', function() {
@@ -613,8 +616,10 @@
                     appData.participants.push({ id: doc.id, ...doc.data() });
                 });
 
-                // Carregar histórico
-                const historySnapshot = await db.collection('history').orderBy('date').get();
+                // CORREÇÃO: Carregar histórico ordenado por data DESCENDENTE (mais recente primeiro)
+                const historySnapshot = await db.collection('history')
+                    .orderBy('date', 'desc')
+                    .get();
                 appData.history = [];
                 historySnapshot.forEach(doc => {
                     appData.history.push({ id: doc.id, ...doc.data() });
@@ -638,15 +643,17 @@
                 renderDashboard();
             });
 
-            // Listener em tempo real para histórico
-            db.collection('history').onSnapshot((snapshot) => {
-                appData.history = [];
-                snapshot.forEach(doc => {
-                    appData.history.push({ id: doc.id, ...doc.data() });
+            // CORREÇÃO: Listener em tempo real para histórico ordenado por data DESCENDENTE
+            db.collection('history')
+                .orderBy('date', 'desc')
+                .onSnapshot((snapshot) => {
+                    appData.history = [];
+                    snapshot.forEach(doc => {
+                        appData.history.push({ id: doc.id, ...doc.data() });
+                    });
+                    renderHistory();
+                    renderDashboard();
                 });
-                renderHistory();
-                renderDashboard();
-            });
 
             // Listener em tempo real para configurações
             db.collection('settings').doc('appSettings').onSnapshot((doc) => {
@@ -657,58 +664,13 @@
             });
         }
 
-        // --- SISTEMA DE SENHA PARA AÇÕES ---
-        function requestPassword(action, data = null, title = "Acesso Restrito", message = "Digite a senha de administrador para continuar.", modalToClose = null) {
-            pendingAction = action;
-            pendingActionData = data;
-            currentModalToClose = modalToClose;
-            
-            document.getElementById('password-modal-title').textContent = title;
-            document.getElementById('password-modal-message').textContent = message;
-            document.getElementById('admin-pass').value = '';
-            
-            // Fecha o modal atual se especificado
-            if (modalToClose) {
-                closeModal(modalToClose);
-            }
-            
-            openModal('modal-password');
-        }
-
-        function executeActionAfterPassword() {
-            const input = document.getElementById('admin-pass').value;
-            if (input === DEFAULT_PASS) {
-                closeModal('modal-password');
-                
-                // Executa a ação pendente
-                if (pendingAction) {
-                    if (pendingActionData) {
-                        pendingAction(pendingActionData);
-                    } else {
-                        pendingAction();
-                    }
-                }
-                
-                // Limpa as variáveis pendentes
-                pendingAction = null;
-                pendingActionData = null;
-                currentModalToClose = null;
-            } else {
-                alert("Senha incorreta.");
-                // Reabre o modal anterior se a senha estiver errada
-                if (currentModalToClose) {
-                    openModal(currentModalToClose);
-                }
-            }
-        }
-
-        // --- FUNÇÕES COM PROTEÇÃO POR SENHA ---
+        // --- FUNÇÕES SIMPLIFICADAS ---
         function openAddParticipantModal() {
             openModal('modal-add');
             document.getElementById('new-value').value = appData.settings.defaultValue;
         }
 
-        function addParticipantWithPassword() {
+        async function addParticipant() {
             const nameInp = document.getElementById('new-name');
             const valInp = document.getElementById('new-value');
             
@@ -720,21 +682,11 @@
                 return;
             }
 
-            requestPassword(
-                addParticipantExecute, 
-                { name, value }, 
-                "Adicionar Participante", 
-                "Digite a senha para adicionar novo participante.",
-                'modal-add'
-            );
-        }
-
-        async function addParticipantExecute(data) {
             try {
                 const participant = {
-                    name: data.name,
-                    value: data.value,
-                    paid: false,
+                    name: name,
+                    value: value,
+                    paid: true, // Todos pagos automaticamente
                     hasWon: false,
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 };
@@ -742,77 +694,89 @@
                 await db.collection('participants').add(participant);
                 
                 document.getElementById('new-name').value = '';
-                document.getElementById('new-value').value = appData.settings.defaultValue;
+                closeModal('modal-add');
             } catch (error) {
                 console.error("Erro ao adicionar participante:", error);
                 alert("Erro ao adicionar participante.");
             }
         }
 
-        function removeParticipant(id) {
-            const participant = appData.participants.find(p => p.id === id);
-            requestPassword(
-                removeParticipantExecute, 
-                { id, name: participant.name }, 
-                "Remover Participante", 
-                `Digite a senha para remover ${participant.name}.`
-            );
-        }
-
-        async function removeParticipantExecute(data) {
-            try {
-                await db.collection('participants').doc(data.id).delete();
-            } catch (error) {
-                console.error("Erro ao remover participante:", error);
-                alert("Erro ao remover participante.");
-            }
-        }
-
-        function togglePayment(id) {
-            const participant = appData.participants.find(p => p.id === id);
-            const newStatus = !participant.paid;
-            requestPassword(
-                togglePaymentExecute, 
-                { id, name: participant.name, newStatus }, 
-                "Alterar Pagamento", 
-                `Digite a senha para marcar ${participant.name} como ${newStatus ? 'PAGO' : 'PENDENTE'}.`
-            );
-        }
-
-        async function togglePaymentExecute(data) {
-            try {
-                await db.collection('participants').doc(data.id).update({ 
-                    paid: data.newStatus 
-                });
-            } catch (error) {
-                console.error("Erro ao atualizar pagamento:", error);
-                alert("Erro ao atualizar status de pagamento.");
-            }
-        }
-
         function startDraw() {
-            // Regras de Validação
-            const eligible = appData.participants.filter(p => p.paid && !p.hasWon);
+            // ATUALIZAÇÃO: Recarregar dados antes do sorteio para evitar inconsistências
+            loadData().then(() => {
+                // Regras de Validação - apenas participantes que nunca ganharam
+                const eligible = appData.participants.filter(p => !p.hasWon);
 
-            if (eligible.length === 0) {
-                alert("Não há participantes elegíveis (pagos e que nunca ganharam).");
+                if (eligible.length === 0) {
+                    alert("Não há participantes elegíveis (que nunca ganharam).");
+                    return;
+                }
+
+                // CORREÇÃO: Verificar se é o primeiro sorteio baseado no histórico
+                if (appData.history.length === 0) {
+                    // Primeiro sorteio - solicitar mês de referência
+                    openMonthModal();
+                } else {
+                    // Sorteios subsequentes - calcular próximo mês automaticamente
+                    calculateNextMonth();
+                    startDrawExecute();
+                }
+            }).catch(error => {
+                console.error("Erro ao atualizar dados:", error);
+                alert("Erro ao atualizar dados. Tente novamente.");
+            });
+        }
+
+        function openMonthModal() {
+            // Define o valor padrão como o mês atual
+            const currentMonth = new Date().toISOString().slice(0, 7);
+            document.getElementById('month-ref').value = currentMonth;
+            openModal('modal-month');
+        }
+
+        function confirmMonth() {
+            const selectedMonth = document.getElementById('month-ref').value;
+            if (!selectedMonth) {
+                alert("Por favor, selecione um mês de referência.");
+                return;
+            }
+            
+            nextMonthToUse = selectedMonth;
+            closeModal('modal-month');
+            startDrawExecute();
+        }
+
+        function calculateNextMonth() {
+            if (appData.history.length === 0) {
+                nextMonthToUse = new Date().toISOString().slice(0, 7);
                 return;
             }
 
-            requestPassword(
-                startDrawExecute, 
-                null, 
-                "Realizar Sorteio", 
-                "Digite a senha para realizar o sorteio."
-            );
+            // CORREÇÃO: Como o histórico já está ordenado por data descendente, pegar o primeiro item (mais recente)
+            const lastMonth = appData.history[0].date;
+            const [year, month] = lastMonth.split('-');
+            
+            // Calcular próximo mês
+            let nextYear = parseInt(year);
+            let nextMonth = parseInt(month) + 1;
+            
+            if (nextMonth > 12) {
+                nextMonth = 1;
+                nextYear += 1;
+            }
+            
+            nextMonthToUse = `${nextYear}-${nextMonth.toString().padStart(2, '0')}`;
         }
 
         function startDrawExecute() {
-            const eligible = appData.participants.filter(p => p.paid && !p.hasWon);
+            const eligible = appData.participants.filter(p => !p.hasWon);
             
             openModal('draw-animation-modal');
             document.getElementById('winner-reveal').style.display = 'none';
             document.getElementById('suspense-name').style.display = 'block';
+
+            // Iniciar som de tambor
+            playDrumSound();
 
             let counter = 0;
             const maxIterations = 30;
@@ -820,7 +784,8 @@
             const nameEl = document.getElementById('suspense-name');
 
             const loop = () => {
-                const randomVisual = eligible[Math.floor(Math.random() * eligible.length)];
+                // MELHORIA: Usar algoritmo mais aleatório
+                const randomVisual = eligible[getRandomInt(0, eligible.length - 1)];
                 nameEl.textContent = randomVisual.name;
                 nameEl.style.color = counter % 2 === 0 ? '#fff' : '#aaa';
 
@@ -836,13 +801,27 @@
             loop();
         }
 
+        // MELHORIA: Função para gerar números aleatórios mais seguros
+        function getRandomInt(min, max) {
+            // Usar crypto.getRandomValues se disponível para maior aleatoriedade
+            if (window.crypto && window.crypto.getRandomValues) {
+                const range = max - min + 1;
+                const randomBuffer = new Uint32Array(1);
+                window.crypto.getRandomValues(randomBuffer);
+                return min + (randomBuffer[0] % range);
+            } else {
+                // Fallback para Math.random
+                return Math.floor(Math.random() * (max - min + 1)) + min;
+            }
+        }
+
         async function finishDraw(eligibleList) {
-            // Sorteia o vencedor real
-            const winnerIndex = Math.floor(Math.random() * eligibleList.length);
+            // MELHORIA: Usar algoritmo mais aleatório para escolher o vencedor
+            const winnerIndex = getRandomInt(0, eligibleList.length - 1);
             const winner = eligibleList[winnerIndex];
             
-            // Calcula Prêmio Total
-            const totalPot = appData.participants.filter(p => p.paid).reduce((acc, curr) => acc + curr.value, 0);
+            // Calcula Prêmio Total baseado no TOTAL de participantes * R$ 100
+            const totalPot = appData.participants.length * 100;
 
             try {
                 // Atualiza participante como vencedor
@@ -850,7 +829,7 @@
                 
                 // Adiciona ao histórico
                 const historyItem = {
-                    date: appData.settings.currentRef,
+                    date: nextMonthToUse,
                     winnerId: winner.id,
                     winnerName: winner.name,
                     prize: totalPot,
@@ -858,6 +837,11 @@
                 };
                 
                 await db.collection('history').add(historyItem);
+
+                // Atualiza o último mês nas configurações
+                await db.collection('settings').doc('appSettings').update({
+                    lastMonth: nextMonthToUse
+                });
 
                 // Mostra UI
                 const nameEl = document.getElementById('suspense-name');
@@ -867,81 +851,165 @@
                 document.getElementById('final-winner').textContent = winner.name;
                 document.getElementById('final-prize').textContent = formatCurrency(totalPot);
                 
+                // Formata e exibe informações do mês
+                const [year, month] = nextMonthToUse.split('-');
+                const monthName = new Date(year, month - 1).toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
+                document.getElementById('month-info').textContent = `Referência: ${monthName.toUpperCase()}`;
+                
                 revealDiv.style.display = 'block';
                 revealDiv.classList.add('active');
+                
+                // Adicionar efeitos de vitória
+                createConfetti();
+                playVictorySound();
             } catch (error) {
                 console.error("Erro ao finalizar sorteio:", error);
                 alert("Erro ao finalizar sorteio.");
             }
         }
 
-        function saveSettingsWithPassword() {
-            requestPassword(
-                saveSettingsExecute, 
-                null, 
-                "Salvar Configurações", 
-                "Digite a senha para modificar as configurações.",
-                'modal-settings'
-            );
-        }
-
-        async function saveSettingsExecute() {
-            try {
-                const defVal = parseFloat(document.getElementById('setting-default-value').value);
-                const refDate = document.getElementById('setting-ref-date').value;
-
-                if (defVal && refDate) {
-                    await db.collection('settings').doc('appSettings').set({
-                        defaultValue: defVal,
-                        currentRef: refDate
+        // --- EFEITOS DE VITÓRIA ---
+        function createConfetti() {
+            const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff', '#ffa500'];
+            
+            for (let i = 0; i < 150; i++) {
+                setTimeout(() => {
+                    const confetti = document.createElement('div');
+                    confetti.className = 'confetti';
+                    confetti.style.left = Math.random() * 100 + 'vw';
+                    confetti.style.top = '-10px';
+                    confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                    confetti.style.transform = `rotate(${Math.random() * 360}deg)`;
+                    
+                    document.body.appendChild(confetti);
+                    
+                    // Animação
+                    const animation = confetti.animate([
+                        { transform: `translateY(0) rotate(0deg)`, opacity: 1 },
+                        { transform: `translateY(${window.innerHeight + 100}px) rotate(${Math.random() * 720}deg)`, opacity: 0 }
+                    ], {
+                        duration: 2000 + Math.random() * 3000,
+                        easing: 'cubic-bezier(0.1, 0.8, 0.2, 1)'
                     });
-                    alert("Configurações salvas!");
-                } else {
-                    alert("Preencha os campos corretamente.");
-                    // Reabre o modal de configurações se houver erro
-                    openModal('modal-settings');
-                }
-            } catch (error) {
-                console.error("Erro ao salvar configurações:", error);
-                alert("Erro ao salvar configurações.");
-                // Reabre o modal de configurações se houver erro
-                openModal('modal-settings');
+                    
+                    animation.onfinish = () => {
+                        confetti.remove();
+                    };
+                }, i * 20);
+            }
+            
+            // Fogos de artifício
+            for (let i = 0; i < 20; i++) {
+                setTimeout(() => {
+                    createFirework();
+                }, i * 300);
             }
         }
-
-        function resetDataWithPassword() {
-            requestPassword(
-                resetDataExecute, 
-                null, 
-                "Resetar Dados", 
-                "ATENÇÃO: Esta ação apagará TODOS os dados. Digite a senha para confirmar.",
-                'modal-settings'
-            );
+        
+        function createFirework() {
+            const x = Math.random() * window.innerWidth;
+            const y = Math.random() * window.innerHeight / 2;
+            const color = `hsl(${Math.random() * 360}, 100%, 50%)`;
+            
+            const firework = document.createElement('div');
+            firework.className = 'firework';
+            firework.style.left = x + 'px';
+            firework.style.top = y + 'px';
+            firework.style.backgroundColor = color;
+            firework.style.boxShadow = `0 0 10px 2px ${color}`;
+            
+            document.body.appendChild(firework);
+            
+            // Animação de explosão
+            const explosion = firework.animate([
+                { transform: 'scale(1)', opacity: 1 },
+                { transform: 'scale(20)', opacity: 0 }
+            ], {
+                duration: 1000,
+                easing: 'ease-out'
+            });
+            
+            explosion.onfinish = () => {
+                firework.remove();
+            };
         }
-
-        async function resetDataExecute() {
-            if (confirm("ATENÇÃO: Isso apagará TODOS os participantes e histórico. Não pode ser desfeito. Continuar?")) {
-                try {
-                    // Remove todos os participantes
-                    const participantsSnapshot = await db.collection('participants').get();
-                    const batch = db.batch();
-                    participantsSnapshot.forEach(doc => {
-                        batch.delete(doc.ref);
-                    });
-                    
-                    // Remove todo o histórico
-                    const historySnapshot = await db.collection('history').get();
-                    historySnapshot.forEach(doc => {
-                        batch.delete(doc.ref);
-                    });
-                    
-                    await batch.commit();
-                    
-                    alert("Dados resetados com sucesso!");
-                } catch (error) {
-                    console.error("Erro ao resetar dados:", error);
-                    alert("Erro ao resetar dados.");
-                }
+        
+        // --- SONS ---
+        function playDrumSound() {
+            // Criar som de tambor usando Web Audio API
+            try {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(100, audioContext.currentTime);
+                gainNode.gain.setValueAtTime(0.7, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+                
+                oscillator.start();
+                oscillator.stop(audioContext.currentTime + 0.5);
+                
+                // Repetir o som em intervalos aleatórios
+                let count = 0;
+                const drumInterval = setInterval(() => {
+                    if (count < 15) {
+                        playSingleDrumBeat(audioContext);
+                        count++;
+                    } else {
+                        clearInterval(drumInterval);
+                    }
+                }, 150);
+            } catch (error) {
+                console.log("Áudio não suportado:", error);
+            }
+        }
+        
+        function playSingleDrumBeat(audioContext) {
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(80 + Math.random() * 40, audioContext.currentTime);
+            gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+            
+            oscillator.start();
+            oscillator.stop(audioContext.currentTime + 0.1);
+        }
+        
+        function playVictorySound() {
+            try {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                
+                // Tocar acorde de vitória
+                const frequencies = [523.25, 659.25, 783.99]; // C, E, G
+                
+                frequencies.forEach((freq, index) => {
+                    setTimeout(() => {
+                        const oscillator = audioContext.createOscillator();
+                        const gainNode = audioContext.createGain();
+                        
+                        oscillator.connect(gainNode);
+                        gainNode.connect(audioContext.destination);
+                        
+                        oscillator.type = 'sine';
+                        oscillator.frequency.setValueAtTime(freq, audioContext.currentTime);
+                        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 1);
+                        
+                        oscillator.start();
+                        oscillator.stop(audioContext.currentTime + 1);
+                    }, index * 100);
+                });
+            } catch (error) {
+                console.log("Áudio não suportado:", error);
             }
         }
 
@@ -962,33 +1030,19 @@
 
         // --- DASHBOARD ---
         function renderDashboard() {
-            const paidParticipants = appData.participants.filter(p => p.paid);
-            const totalPot = paidParticipants.reduce((acc, curr) => acc + curr.value, 0);
+            const activeParticipants = appData.participants.filter(p => !p.hasWon);
+            // Calcula o prêmio baseado no TOTAL de participantes * R$ 100
+            const totalPot = appData.participants.length * 100;
 
             document.getElementById('total-pot').textContent = formatCurrency(totalPot);
             document.getElementById('participation-stats').textContent = 
-                `${paidParticipants.length} Pagos / ${appData.participants.length} Total`;
-            
-            // Format Data Referência
-            const [year, month] = appData.settings.currentRef.split('-');
-            const dateObj = new Date(year, month - 1);
-            const monthName = dateObj.toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
-            document.getElementById('current-reference').textContent = monthName.toUpperCase();
+                `${activeParticipants.length} Ativos / ${appData.participants.length} Total`;
 
-            // Verificar se sorteio já ocorreu neste mês
-            const alreadyDrawn = appData.history.some(h => h.date === appData.settings.currentRef);
+            // Sempre habilitado o sorteio
             const btnSortear = document.getElementById('btn-sortear');
-            const msgDraw = document.getElementById('draw-msg');
-
-            if (alreadyDrawn) {
-                btnSortear.disabled = true;
-                btnSortear.innerHTML = '<i class="fas fa-check"></i> Sorteio Realizado';
-                msgDraw.textContent = "O sorteio deste mês já foi realizado.";
-            } else {
-                btnSortear.disabled = false;
-                btnSortear.innerHTML = '<i class="fas fa-ticket-alt"></i> Realizar Sorteio';
-                msgDraw.textContent = "";
-            }
+            btnSortear.disabled = false;
+            btnSortear.innerHTML = '<i class="fas fa-ticket-alt"></i> Realizar Sorteio';
+            document.getElementById('draw-msg').textContent = "";
         }
 
         // --- PARTICIPANTES ---
@@ -1004,9 +1058,9 @@
             appData.participants.forEach(p => {
                 const hasWon = p.hasWon ? true : false;
                 const div = document.createElement('div');
-                div.className = `participant-card ${p.paid ? 'paid' : 'pending'} ${hasWon ? 'winner' : ''}`;
+                div.className = `participant-card paid ${hasWon ? 'winner' : ''}`;
                 
-                let statusText = p.paid ? "PAGO" : "PENDENTE";
+                let statusText = "ATIVO";
                 if(hasWon) statusText = "JÁ GANHOU";
 
                 div.innerHTML = `
@@ -1015,14 +1069,7 @@
                         <span>${formatCurrency(p.value)} - ${statusText}</span>
                     </div>
                     <div class="p-actions">
-                         ${!hasWon ? `
-                            <button class="toggle-btn ${p.paid ? 'is-paid' : ''}" onclick="togglePayment('${p.id}')">
-                                ${p.paid ? '<i class="fas fa-check-circle"></i>' : 'Pagar'}
-                            </button>
-                            <button class="toggle-btn" style="color:var(--danger)" onclick="removeParticipant('${p.id}')">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                         ` : '<span style="font-size:0.8rem; color:#aaa;">Inativo</span>'}
+                         ${hasWon ? '<span style="font-size:0.8rem; color:#aaa;">Inativo</span>' : ''}
                     </div>
                 `;
                 list.appendChild(div);
@@ -1033,18 +1080,16 @@
         function renderHistory() {
             const list = document.getElementById('history-list');
             
-            // Ordenar do mais recente para o mais antigo
-            const sortedHistory = [...appData.history].sort((a, b) => {
-                return new Date(b.date) - new Date(a.date);
-            });
+            // CORREÇÃO: O histórico já vem ordenado do Firebase por data DESCENDENTE (mais recente primeiro)
+            // Não precisa ordenar novamente
 
-            if (sortedHistory.length === 0) {
+            if (appData.history.length === 0) {
                 list.innerHTML = '<p style="text-align:center; color:#999; margin-top: 2rem;">Nenhum sorteio realizado.</p>';
                 return;
             }
 
             list.innerHTML = '';
-            sortedHistory.forEach(h => {
+            appData.history.forEach(h => {
                 const [year, month] = h.date.split('-');
                 const dateText = `${month}/${year}`;
 
@@ -1061,13 +1106,6 @@
                 `;
                 list.appendChild(div);
             });
-        }
-
-        // --- CONFIGURAÇÕES ---
-        function openSettings() {
-            document.getElementById('setting-default-value').value = appData.settings.defaultValue;
-            document.getElementById('setting-ref-date').value = appData.settings.currentRef;
-            openModal('modal-settings');
         }
 
         // --- UTILITÁRIOS ---
