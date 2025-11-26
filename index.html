@@ -201,6 +201,34 @@
             font-weight: 600;
         }
 
+        /* --- CARD ADICIONAR PARTICIPANTE --- */
+        .add-participant-card {
+            background: var(--card-bg);
+            padding: 1.5rem;
+            border-radius: 12px;
+            margin-bottom: 0.8rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            transition: 0.3s;
+            border: 2px dashed #ddd;
+            cursor: pointer;
+            min-height: 120px;
+            color: var(--text-light);
+        }
+
+        .add-participant-card:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .add-participant-card i {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
         /* --- HISTÓRICO --- */
         .history-item {
             background: var(--card-bg);
@@ -340,28 +368,6 @@
             -webkit-text-fill-color: transparent;
         }
 
-        .fab {
-            position: fixed;
-            bottom: 80px;
-            right: 20px;
-            background: var(--secondary);
-            color: white;
-            width: 56px;
-            height: 56px;
-            border-radius: 50%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-size: 1.5rem;
-            box-shadow: 0 4px 10px rgba(236, 72, 153, 0.4);
-            border: none;
-            cursor: pointer;
-            z-index: 90;
-            transition: transform 0.2s;
-        }
-        
-        .fab:hover { transform: scale(1.1); }
-
         /* --- LOADING --- */
         .loading {
             display: flex;
@@ -458,28 +464,11 @@
             transform: scale(0.98);
         }
 
-        /* --- BOTÃO DE ADMINISTRAÇÃO --- */
-        .admin-button {
-            position: fixed;
-            bottom: 80px;
-            left: 20px;
-            background: var(--danger);
-            color: white;
-            width: 56px;
-            height: 56px;
-            border-radius: 50%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-size: 1.2rem;
-            box-shadow: 0 4px 10px rgba(239, 68, 68, 0.4);
-            border: none;
-            cursor: pointer;
-            z-index: 90;
-            transition: transform 0.2s;
+        /* --- ESPAÇO EXTRA APÓS ÚLTIMO CARD --- */
+        .extra-space {
+            height: 30px;
+            width: 100%;
         }
-        
-        .admin-button:hover { transform: scale(1.1); }
     </style>
 </head>
 <body>
@@ -514,9 +503,12 @@
                     <div class="loading-spinner"></div>
                 </div>
             </div>
-            <button class="fab" onclick="openAddParticipantModal()">
-                <i class="fas fa-plus"></i>
-            </button>
+            <!-- Card para adicionar participante -->
+            <div class="add-participant-card" onclick="openAddParticipantModal()">
+                <i class="fas fa-plus-circle"></i>
+                <span>Adicionar Participante</span>
+            </div>
+            <div class="extra-space"></div>
         </section>
 
         <section id="history" class="view-section">
@@ -529,6 +521,7 @@
             <button class="reset-button" onclick="openResetModal()">
                 <i class="fas fa-undo"></i> Resetar Todos os Sorteios
             </button>
+            <div class="extra-space"></div>
         </section>
     </main>
 
@@ -546,11 +539,6 @@
             <span>Histórico</span>
         </button>
     </nav>
-
-    <!-- Botão de administração -->
-    <button class="admin-button" onclick="openResetModal()">
-        <i class="fas fa-cog"></i>
-    </button>
 
     <!-- Modal para adicionar participantes -->
     <div id="modal-add" class="modal-overlay">
