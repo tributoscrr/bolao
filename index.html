@@ -469,6 +469,113 @@
             height: 30px;
             width: 100%;
         }
+
+        /* --- MODAL DE BOAS-VINDAS --- */
+        #welcome-modal .modal-content {
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            color: white;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.1);
+            overflow: hidden;
+            position: relative;
+        }
+
+        #welcome-modal .modal-content::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(
+                to bottom right,
+                rgba(255,255,255,0.1) 0%,
+                transparent 20%,
+                transparent 80%,
+                rgba(255,255,255,0.1) 100%
+            );
+            animation: shimmer 3s infinite linear;
+            z-index: 0;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(-50%) translateY(-50%) rotate(0deg); }
+            100% { transform: translateX(-50%) translateY(-50%) rotate(360deg); }
+        }
+
+        .welcome-title {
+            font-size: 1.8rem;
+            font-weight: 800;
+            margin-bottom: 1.5rem;
+            background: linear-gradient(to right, #fff, #aaa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            position: relative;
+            z-index: 1;
+        }
+
+        .welcome-subtitle {
+            font-size: 1.1rem;
+            margin-bottom: 1.5rem;
+            color: #ccc;
+            position: relative;
+            z-index: 1;
+        }
+
+        .pulse-text {
+            animation: pulse 2s infinite;
+            font-weight: 700;
+            color: #ffd700;
+            position: relative;
+            z-index: 1;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.6; }
+            50% { opacity: 1; }
+            100% { opacity: 0.6; }
+        }
+
+        .typing-effect {
+            overflow: hidden;
+            border-right: 2px solid #fff;
+            white-space: nowrap;
+            margin: 0 auto;
+            animation: typing 3.5s steps(40, end), blink-caret 0.75s step-end infinite;
+            position: relative;
+            z-index: 1;
+        }
+
+        @keyframes typing {
+            from { width: 0 }
+            to { width: 100% }
+        }
+
+        @keyframes blink-caret {
+            from, to { border-color: transparent }
+            50% { border-color: #fff }
+        }
+
+        .sparkle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background-color: #fff;
+            border-radius: 50%;
+            animation: sparkle-fall 3s linear infinite;
+            z-index: 0;
+        }
+
+        @keyframes sparkle-fall {
+            0% {
+                transform: translateY(-100px) rotate(0deg);
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(100vh) rotate(360deg);
+                opacity: 0;
+            }
+        }
     </style>
 </head>
 <body>
@@ -539,6 +646,24 @@
             <span>Histórico</span>
         </button>
     </nav>
+
+    <!-- Modal de Boas-Vindas -->
+    <div id="welcome-modal" class="modal-overlay open">
+        <div class="modal-content">
+            <i class="fas fa-star" style="font-size: 2.5rem; color: gold; margin-bottom: 1rem; position: relative; z-index: 1;"></i>
+            <h2 class="welcome-title">BOLÃO MENSAL</h2>
+            <div class="welcome-subtitle">
+                <div class="typing-effect">Papo de mudança de Vida</div>
+            </div>
+            
+            <div class="pulse-text" style="margin-bottom: 1.5rem; position: relative; z-index: 1;">
+                <i class="fas fa-bolt"></i> PRÊMIOS MENSAL <i class="fas fa-bolt"></i>
+            </div>
+            <button class="btn-primary" onclick="closeWelcomeModal()" style="position: relative; z-index: 1;">
+                Entrar no Bolão
+            </button>
+        </div>
+    </div>
 
     <!-- Modal para adicionar participantes -->
     <div id="modal-add" class="modal-overlay">
@@ -635,7 +760,27 @@
         // --- INICIALIZAÇÃO ---
         document.addEventListener('DOMContentLoaded', function() {
             initializeApp();
+            createWelcomeSparkles();
         });
+
+        // Função para criar efeito de brilhos no modal de boas-vindas
+        function createWelcomeSparkles() {
+            const modal = document.getElementById('welcome-modal');
+            for (let i = 0; i < 20; i++) {
+                const sparkle = document.createElement('div');
+                sparkle.className = 'sparkle';
+                sparkle.style.left = Math.random() * 100 + '%';
+                sparkle.style.animationDelay = Math.random() * 3 + 's';
+                modal.querySelector('.modal-content').appendChild(sparkle);
+            }
+        }
+
+        // Função para fechar o modal de boas-vindas
+        function closeWelcomeModal() {
+            document.getElementById('welcome-modal').classList.remove('open');
+            // Tocar som de transição
+            playTransitionSound();
+        }
 
         async function initializeApp() {
             try {
@@ -1113,6 +1258,32 @@
                         oscillator.stop(audioContext.currentTime + 1);
                     }, index * 100);
                 });
+            } catch (error) {
+                console.log("Áudio não suportado:", error);
+            }
+        }
+
+        // Novo som para transição do modal de boas-vindas
+        function playTransitionSound() {
+            try {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                
+                // Som de transição suave
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(523.25, audioContext.currentTime); // Nota C
+                oscillator.frequency.exponentialRampToValueAtTime(1046.50, audioContext.currentTime + 0.5); // Nota C uma oitava acima
+                
+                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+                
+                oscillator.start();
+                oscillator.stop(audioContext.currentTime + 0.5);
             } catch (error) {
                 console.log("Áudio não suportado:", error);
             }
